@@ -1,0 +1,21 @@
+{
+  "name": "homemade-skills",
+  "displayName": "Homemade skills",
+  "version": "0.1.0",
+  "description": "Homemade skills distilled from everyday work with Claude Code: writing, editing and other hand-rolled helpers.",
+  "author": {
+    "name": "Dmitry Fomin",
+    "url": "https://github.com/dmitry-fomin"
+  },
+  "homepage": "https://github.com/dmitry-fomin/homemade-skills-claude-code",
+  "repository": "https://github.com/dmitry-fomin/homemade-skills-claude-code",
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "editing",
+    "russian",
+    "livejournal",
+    "vc-ru",
+    "homemade"
+  ]
+}

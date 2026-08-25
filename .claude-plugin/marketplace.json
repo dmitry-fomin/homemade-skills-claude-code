@@ -1,0 +1,20 @@
+{
+  "name": "homemade-skills-claude-code",
+  "owner": {
+    "name": "Dmitry Fomin",
+    "url": "https://github.com/dmitry-fomin"
+  },
+  "description": "Homemade skills for Claude Code, distilled from everyday work.",
+  "plugins": [
+    {
+      "name": "homemade-skills",
+      "source": "./",
+      "description": "Homemade skills distilled from everyday work with Claude Code: writing, editing and other hand-rolled helpers.",
+      "version": "0.1.0",
+      "license": "MIT",
+      "author": {
+        "name": "Dmitry Fomin"
+      }
+    }
+  ]
+}
