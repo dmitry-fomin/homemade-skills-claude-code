@@ -1,8 +1,9 @@
 # Homemade skills for Claude Code
 
-Hand-rolled skills distilled from everyday work, packaged as a Claude Code plugin.
-One repository, one plugin, a growing `skills/` directory — new skills are added one at a time
-as they prove themselves in real use.
+Hand-rolled skills distilled from everyday work, packaged as Claude Code plugins.
+One repository, several plugins: `homemade-skills` is the general collection, and a skill that
+carries its own runtime or its own API key ships as a separate plugin, so it can be switched on
+per project instead of coming along with everything else.
 
 Skill bodies are written in Russian, because that is the language they work with.
 
@@ -11,7 +12,11 @@ Skill bodies are written in Russian, because that is the language they work with
 ```
 /plugin marketplace add dmitry-fomin/homemade-skills-claude-code
 /plugin install homemade-skills@homemade-skills-claude-code
+/plugin install image-gen@homemade-skills-claude-code
 ```
+
+`image-gen` is a separate plugin on purpose: it needs `uv` and an `OPENROUTER_API_KEY`, and it is
+only wanted in projects that actually draw pictures.
 
 Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 
@@ -20,6 +25,7 @@ Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 | Skill | Command | What it is for |
 | --- | --- | --- |
 | `writer` | `/homemade-skills:writer [lj\|vc]` | Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal (`lj`) and vc.ru (`vc`). |
+| `image-gen` | `/image-gen:image-gen` | Prompt to PNG on disk through OpenRouter (seedream / gpt-image / qwen-image), reference frames, `rembg` background removal — plus the prompting lore that makes the frames usable. Needs `uv` and `OPENROUTER_API_KEY`. |
 
 Claude also loads a skill on its own when the request matches its description, so you rarely
 need to type the command: hand it a draft and say it reads flat.
@@ -28,12 +34,32 @@ need to type the command: hand it a draft and say it reads flat.
 
 ```
 .claude-plugin/
-  plugin.json        plugin manifest (name: homemade-skills)
-  marketplace.json   single-plugin marketplace, source "./"
+  plugin.json        manifest of the collection plugin (name: homemade-skills)
+  marketplace.json   marketplace listing every plugin in this repository
 skills/
   writer/
-    SKILL.md
+    SKILL.md         part of the homemade-skills plugin
+plugins/
+  image-gen/         a standalone plugin, installed separately
+    .claude-plugin/plugin.json
+    skills/image-gen/
+      SKILL.md
+      scripts/generate_image.py   entry point (PEP 723, run with uv)
+      scripts/engines.conf        engine registry: alias | base url | key var | model | reference
+      references/prompting.md     what makes a frame usable
 ```
+
+`image-gen` keeps its documented entry point
+`uv run ~/.claude/skills/image-gen/scripts/generate_image.py`, which project documents spell out
+verbatim. Link it once after installing:
+
+```
+mkdir -p ~/.claude/skills/image-gen
+ln -sfn "<repo>/plugins/image-gen/skills/image-gen/scripts" ~/.claude/skills/image-gen/scripts
+```
+
+That directory holds no `SKILL.md`, so it is a path bridge only — the skill itself still comes
+from the plugin and is not loaded twice.
 
 ## Adding a skill
 
