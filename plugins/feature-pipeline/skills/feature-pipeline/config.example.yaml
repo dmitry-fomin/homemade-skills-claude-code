@@ -3,8 +3,9 @@
 # Все пути — относительно корня проекта.
 
 paths:
-  tz: docs/specs/tz                 # ТЗ на шаг и порции, чек-листы, журналы
-  specs: docs/superpowers/specs     # крупные спеки функций; пусто — спек в проекте нет
+  specs: docs/specs             # крупные спеки функций; пусто — спек в проекте нет
+  steps: docs/specs/steps       # ТЗ на шаг и порции, чек-листы, замечания, журналы
+                                # (каталог шагов лежит внутри каталога спек — так и задумано)
 
 second_opinion:
   when: always        # always | spec-only | off
@@ -12,7 +13,9 @@ second_opinion:
   model: ""           # пусто — модель провайдера по умолчанию
 
 executor:
+  # Цепочка исполнителей этапа 3: сверху вниз до первого доступного.
   primary: grok:grok-delegate
   fallback: dsh:dsh-runner
+  local: feature-pipeline:pipeline-implementer   # внутри Claude, доступен всегда
   on_fallback: auto   # auto — переехать и записать в журнал; ask — спросить автора
-  effort: high        # low|medium|high|xhigh|max; только для grok, dsh поле игнорирует
+  effort: high        # low|medium|high|xhigh|max; только для grok — dsh и локальный игнорируют
