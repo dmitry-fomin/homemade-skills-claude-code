@@ -8,7 +8,7 @@ paths:
 
 second_opinion:
   when: always        # always | spec-only | off
-  provider: grok      # имя из scripts/providers.conf скила second-opinion
+  provider: grok      # имя из scripts/providers.conf скила /second-opinion:ask
   model: ""           # пусто — модель провайдера по умолчанию
 
 executor:
