@@ -14,11 +14,12 @@ Skill bodies are written in Russian, because that is the language they work with
 /plugin install image-gen@homemade-skills-claude-code
 /plugin install second-opinion@homemade-skills-claude-code
 /plugin install feature-pipeline@homemade-skills-claude-code
+/plugin install skill-smith@homemade-skills-claude-code
 ```
 
 Install only what a project needs — `image-gen` wants `uv` and an `OPENROUTER_API_KEY`,
 `second-opinion` wants at least one LLM key, `feature-pipeline` wants an agentic harness to hand
-the code to (`grok` or `dsh`), and `writer` needs nothing at all.
+the code to (`grok` or `dsh`), and `writer` and `skill-smith` need nothing beyond `python3`.
 
 Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 
@@ -29,8 +30,8 @@ Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 | `writer` | `/writer:writer [lj\|vc]` | Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal (`lj`) and vc.ru (`vc`). |
 | `image-gen` | `/image-gen:image-gen` | Prompt to PNG on disk through OpenRouter (seedream / gpt-image / qwen-image), reference frames, `rembg` background removal — plus the prompting lore that makes the frames usable. Needs `uv` and `OPENROUTER_API_KEY`. |
 | `second-opinion` | `/second-opinion:ask` | Checks a risky hypothesis against a model from a different family — DeepSeek, Gemini, GPT, Grok, Qwen, or anything on OpenRouter — through one OpenAI-compatible script. The value is a second set of blind spots, so instant complete agreement is treated as suspicious. Needs `DEEPSEEK_API_KEY` or `OPENROUTER_API_KEY`. |
-
 | `feature-pipeline` | `/feature-pipeline:feature-pipeline` | Routes a feature through four stages — spec plus acceptance checklist, an outside opinion on the design, implementation in another agentic harness, and an independent verification against the checklist — while the main context only orchestrates: it routes, keeps the journal, runs the guards and commits, and never writes the code itself. Needs the `grok` or `dsh` plugin, and `second-opinion` unless the channel is turned off. |
+| `skill-smith` | `/skill-smith:skill-smith` | Engineering discipline for Claude Code's own configuration — skills, slash commands, subagents, hooks, plugins, marketplaces, `settings.json`. Picks the mechanism before anything is written (a rule that must always hold is a hook, not a skill), takes frontmatter from the live docs instead of memory, matches the wording to the failure it fixes, and ships only after a static validator and a fresh-context trigger check. Ships `validate_skill.py`, which catches what the harness swallows silently. |
 
 Claude also loads a skill on its own when the request matches its description, so you rarely
 need to type the command: hand it a draft and say it reads flat. `feature-pipeline` is the
@@ -63,6 +64,15 @@ plugins/
     skills/feature-pipeline/
       SKILL.md
       config.example.yaml         copy to .claude/feature-pipeline.yaml in the project and edit there
+  skill-smith/
+    .claude-plugin/plugin.json
+    skills/skill-smith/
+      SKILL.md
+      references/frontmatter.md   every field, limit, substitution, override order, portable subset
+      references/mechanisms.md    skill vs hook vs subagent vs plugin vs settings, and the file formats
+      references/wording.md       instruction form by failure type: prohibition, recipe, slot, condition
+      references/testing.md       validator, trigger tuning, wording micro-tests, baseline A/B
+      scripts/validate_skill.py   static SKILL.md checker
 ```
 
 ## feature-pipeline
@@ -125,6 +135,26 @@ line; `consult.sh` needs no change. To see what is wired up and which keys are p
 plugins/second-opinion/skills/ask/scripts/consult.sh --list
 ```
 
+## skill-smith
+
+The plugin that writes the other plugins. It exists because Claude Code configuration fails
+quietly: broken YAML raises nothing — the skill loads with empty metadata and simply stops
+triggering, an unknown field is ignored, a description that summarises the procedure gets
+followed instead of the body. So it runs the same loop code does — check the docs, choose the
+mechanism, write, validate, verify on a fresh context.
+
+Its validator is the part worth having even if the rest is ignored:
+
+```
+python3 plugins/skill-smith/skills/skill-smith/scripts/validate_skill.py --all <skills-dir>
+python3 plugins/skill-smith/skills/skill-smith/scripts/validate_skill.py --portable <skill-dir>
+```
+
+The body and the references are in Russian; field names, paths and commands stay as they are in
+the docs. Reference pages carry the date they were checked against code.claude.com — when that
+date is stale or `claude --version` has moved, the skill refetches the page instead of trusting
+the cache.
+
 ## Adding a skill
 
 1. Create `plugins/<name>/.claude-plugin/plugin.json` and `plugins/<name>/skills/<name>/SKILL.md`.
@@ -140,8 +170,8 @@ plugins/second-opinion/skills/ask/scripts/consult.sh --list
    with empty metadata and it silently stops triggering.
 
 ```
-python3 <skill-smith>/scripts/validate_skill.py --all plugins/<name>/skills
-python3 <skill-smith>/scripts/validate_skill.py --portable plugins/<name>/skills/<name>
+python3 plugins/skill-smith/skills/skill-smith/scripts/validate_skill.py --all plugins/<name>/skills
+python3 plugins/skill-smith/skills/skill-smith/scripts/validate_skill.py --portable plugins/<name>/skills/<name>
 ```
 
 5. Add a row to the Skills table above, an entry to `.claude-plugin/marketplace.json`, and the
