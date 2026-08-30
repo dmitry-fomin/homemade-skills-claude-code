@@ -20,7 +20,7 @@
       "name": "image-gen",
       "source": "./plugins/image-gen",
       "description": "Prompt to PNG on disk through OpenRouter — seedream, gpt-image, qwen-image — plus rembg background removal, with the prompting lore that makes the frames usable.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"
@@ -40,7 +40,7 @@
       "name": "feature-pipeline",
       "source": "./plugins/feature-pipeline",
       "description": "Route a feature through four stages — spec plus acceptance checklist, an outside opinion, implementation in another agentic harness (Grok Build or DeepSeek), and an independent verification — while the main context only orchestrates and never writes the code itself.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"

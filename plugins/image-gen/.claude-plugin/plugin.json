@@ -1,7 +1,7 @@
 {
   "name": "image-gen",
   "displayName": "Image gen",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Prompt to PNG on disk through OpenRouter — seedream, gpt-image, qwen-image — plus rembg background removal, with the prompting lore that makes the frames usable.",
   "author": {
     "name": "Dmitry Fomin",
