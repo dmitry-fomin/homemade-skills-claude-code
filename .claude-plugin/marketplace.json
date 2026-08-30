@@ -10,7 +10,7 @@
       "name": "writer",
       "source": "./plugins/writer",
       "description": "Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal and vc.ru.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"

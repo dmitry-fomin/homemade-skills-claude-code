@@ -1,7 +1,7 @@
 {
   "name": "writer",
   "displayName": "Writer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal and vc.ru.",
   "author": {
     "name": "Dmitry Fomin",
