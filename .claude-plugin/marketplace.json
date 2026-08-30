@@ -7,9 +7,9 @@
   "description": "Homemade skills for Claude Code, distilled from everyday work.",
   "plugins": [
     {
-      "name": "homemade-skills",
-      "source": "./",
-      "description": "Homemade skills distilled from everyday work with Claude Code: writing, editing and other hand-rolled helpers.",
+      "name": "writer",
+      "source": "./plugins/writer",
+      "description": "Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal and vc.ru.",
       "version": "0.1.0",
       "license": "MIT",
       "author": {
@@ -20,6 +20,16 @@
       "name": "image-gen",
       "source": "./plugins/image-gen",
       "description": "Prompt to PNG on disk through OpenRouter — seedream, gpt-image, qwen-image — plus rembg background removal, with the prompting lore that makes the frames usable.",
+      "version": "0.1.0",
+      "license": "MIT",
+      "author": {
+        "name": "Dmitry Fomin"
+      }
+    },
+    {
+      "name": "second-opinion",
+      "source": "./plugins/second-opinion",
+      "description": "Check a risky hypothesis against an independent LLM — DeepSeek, Gemini, GPT, Grok, or any model on OpenRouter — through one OpenAI-compatible script.",
       "version": "0.1.0",
       "license": "MIT",
       "author": {

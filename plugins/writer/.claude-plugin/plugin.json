@@ -1,8 +1,8 @@
 {
-  "name": "homemade-skills",
-  "displayName": "Homemade skills",
+  "name": "writer",
+  "displayName": "Writer",
   "version": "0.1.0",
-  "description": "Homemade skills distilled from everyday work with Claude Code: writing, editing and other hand-rolled helpers.",
+  "description": "Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal and vc.ru.",
   "author": {
     "name": "Dmitry Fomin",
     "url": "https://github.com/dmitry-fomin"
@@ -15,7 +15,6 @@
     "editing",
     "russian",
     "livejournal",
-    "vc-ru",
-    "homemade"
+    "vc-ru"
   ]
 }
