@@ -1,0 +1,18 @@
+# Образец. Скопируй в корень проекта как .claude/feature-pipeline.yaml и правь там —
+# файл внутри плагина перезапишется при обновлении, проектный переживёт его.
+# Все пути — относительно корня проекта.
+
+paths:
+  tz: docs/specs/tz                 # ТЗ на шаг и порции, чек-листы, журналы
+  specs: docs/superpowers/specs     # крупные спеки функций; пусто — спек в проекте нет
+
+second_opinion:
+  when: always        # always | spec-only | off
+  provider: grok      # имя из scripts/providers.conf скила second-opinion
+  model: ""           # пусто — модель провайдера по умолчанию
+
+executor:
+  primary: grok:grok-delegate
+  fallback: dsh:dsh-runner
+  on_fallback: auto   # auto — переехать и записать в журнал; ask — спросить автора
+  effort: high        # low|medium|high|xhigh|max; только для grok, dsh поле игнорирует

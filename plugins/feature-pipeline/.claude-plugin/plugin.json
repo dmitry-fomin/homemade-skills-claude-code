@@ -1,0 +1,21 @@
+{
+  "name": "feature-pipeline",
+  "displayName": "Feature pipeline",
+  "version": "0.1.0",
+  "description": "Route a feature through four stages — spec plus acceptance checklist, an outside opinion, implementation in another agentic harness (Grok Build or DeepSeek), and an independent verification — while the main context only orchestrates and never writes the code itself.",
+  "author": {
+    "name": "Dmitry Fomin",
+    "url": "https://github.com/dmitry-fomin"
+  },
+  "homepage": "https://github.com/dmitry-fomin/homemade-skills-claude-code",
+  "repository": "https://github.com/dmitry-fomin/homemade-skills-claude-code",
+  "license": "MIT",
+  "keywords": [
+    "pipeline",
+    "orchestration",
+    "delegation",
+    "grok",
+    "deepseek",
+    "context-budget"
+  ]
+}
