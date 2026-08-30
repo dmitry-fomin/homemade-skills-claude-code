@@ -15,7 +15,9 @@
 нельзя разобрать программно.
 
 Коды возврата: 0 — файл записан; 1 — ошибка API или фолбэк запрещён флагом;
-2 — ошибка аргументов или окружения (нет ключа, нет конфига).
+2 — ошибка аргументов, окружения (нет ключа, нет конфига) или непредвиденный сбой.
+При любой ошибке stdout остаётся пустым, а в stderr уходит строка `error: ...` —
+вызывающему достаточно проверить код возврата, чтобы не парсить пустоту как JSON.
 
 rembg объявлен зависимостью скрипта нарочно: `uv run --with rembg` тянет
 зависимости минут десять при каждом вызове, а здесь окружение фиксируется
@@ -41,6 +43,20 @@ LOG_NAME = ".image-gen.log"
 REQUEST_TIMEOUT = 300.0
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 RETRY_PAUSES = [2, 6, 14]  # повтор той же моделью — это не фолбэк
+DOWNLOAD_PAUSES = [2, 6, 14]  # повтор скачивания готового кадра — генерация не повторяется
+
+# Коды, при которых менять движок бессмысленно: это не «движок недоступен», а
+# отказ по запросу, ключу или счёту. Все строки engines.conf ходят в один
+# openrouter.ai с одним ключом, поэтому фолбэк на 401/402/403 не помогает в принципе.
+FATAL_STATUSES = {400, 401, 402, 403, 404, 422}
+FATAL_HINTS = {
+    400: "Запрос отклонён — проверь --size, --prompt и референсы",
+    401: "Ключ отвергнут — проверь OPENROUTER_API_KEY (объявлен в ~/.zshenv)",
+    402: "Недостаточно средств на счёте OpenRouter — пополни баланс",
+    403: "Доступ к модели закрыт — проверь права ключа на этот слаг",
+    404: "Модель не найдена — проверь слаг в engines.conf или IMAGE_GEN_MODEL",
+    422: "Запрос отклонён провайдером — проверь размер и формат референсов",
+}
 
 
 def log(msg: str) -> None:
@@ -102,9 +118,13 @@ def api_key(engine: Engine) -> str:
 # --- HTTP -----------------------------------------------------------------
 
 class ApiError(Exception):
-    def __init__(self, msg: str, status: int | None = None):
+    def __init__(self, msg: str, status: int | None = None, fatal: bool | None = None):
         super().__init__(msg)
         self.status = status
+        # fatal — цепочку фолбэка продолжать нельзя: другой движок не поможет
+        # (отказ по ключу/счёту/запросу) либо кадр уже сгенерирован и оплачен.
+        # По умолчанию выводится из кода ответа, чтобы флаг нельзя было забыть.
+        self.fatal = (status in FATAL_STATUSES) if fatal is None else fatal
 
 
 def data_url(path: Path) -> str:
@@ -123,8 +143,13 @@ def build_payload(model: str, prompt: str, size: str, refs: list[Path]) -> dict:
     return payload
 
 
-def request_image(engine: Engine, model: str, payload: dict) -> bytes:
-    """Один кадр от одной модели. Повтор на 429/5xx — фолбэком не считается."""
+def request_image(engine: Engine, model: str, payload: dict) -> tuple[str, object]:
+    """Один кадр от одной модели. Повтор на 429/5xx — фолбэком не считается.
+
+    Возвращает дескриптор кадра: ("b64", bytes) или ("url", str). Скачивание по url
+    вынесено наружу нарочно — сбой загрузки не должен запускать повторную
+    (платную) генерацию.
+    """
     import httpx
 
     url = f"{engine.base_url}/images/generations"
@@ -143,6 +168,7 @@ def request_image(engine: Engine, model: str, payload: dict) -> bytes:
                 time.sleep(pause)
                 continue
             if resp.status_code >= 400:
+                # fatal выводится из кода: 4xx по запросу/ключу/счёту фолбэком не лечится
                 raise ApiError(f"{model}: HTTP {resp.status_code}: {short(resp.text)}", resp.status_code)
             return extract_image(resp.json(), model)
         except ApiError:
@@ -163,21 +189,50 @@ def short(text: str, limit: int = 300) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def extract_image(body: dict, model: str) -> bytes:
+def extract_image(body: dict, model: str) -> tuple[str, object]:
+    """Разбирает ответ API. Картинку по url здесь НЕ качаем: этот код крутится
+    внутри retry-цикла генерации, и сбой загрузки стоил бы повторной генерации."""
     items = body.get("data") or []
     if not items:
         raise ApiError(f"{model}: в ответе нет поля data: {short(json.dumps(body, ensure_ascii=False))}")
     item = items[0]
     if item.get("b64_json"):
-        return base64.b64decode(item["b64_json"])
+        return "b64", base64.b64decode(item["b64_json"])
     if item.get("url"):
-        import httpx
-
-        with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-            r = client.get(item["url"])
-        r.raise_for_status()
-        return r.content
+        return "url", item["url"]
     raise ApiError(f"{model}: в ответе нет ни b64_json, ни url")
+
+
+def fetch_image(url: str, model: str) -> bytes:
+    """Скачивание готового кадра со своим ретраем. Кадр уже сгенерирован и оплачен,
+    поэтому неудача здесь — фатальна: повторять генерацию нельзя."""
+    import httpx
+
+    last: Exception | None = None
+    for attempt in range(len(DOWNLOAD_PAUSES) + 1):
+        try:
+            with httpx.Client(timeout=REQUEST_TIMEOUT, follow_redirects=True) as client:
+                r = client.get(url)
+            if r.status_code in RETRY_STATUSES and attempt < len(DOWNLOAD_PAUSES):
+                pause = DOWNLOAD_PAUSES[attempt]
+                log(f"{model}: загрузка кадра HTTP {r.status_code}, повтор через {pause} с")
+                time.sleep(pause)
+                continue
+            r.raise_for_status()
+            return r.content
+        except Exception as exc:
+            last = exc
+            if attempt < len(DOWNLOAD_PAUSES):
+                pause = DOWNLOAD_PAUSES[attempt]
+                log(f"{model}: загрузка кадра — {type(exc).__name__}: {exc}; повтор через {pause} с")
+                time.sleep(pause)
+                continue
+            break
+    raise ApiError(
+        f"{model}: кадр сгенерирован, но не скачался по url — {type(last).__name__}: {last}. "
+        "Генерация уже оплачена, повторять её скрипт не станет; попробуй ещё раз вручную.",
+        fatal=True,
+    )
 
 
 # --- запись ---------------------------------------------------------------
@@ -232,16 +287,18 @@ def write_log(out: Path, record: dict) -> None:
 # --- generate -------------------------------------------------------------
 
 def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
-    chosen = None
+    """Выбранный движок и хвост фолбэка — строго ВНИЗ по списку engines.conf,
+    как обещают и конфиг, и SKILL.md. Новый движок в конфиге требует правки
+    списка флагов здесь и в build_parser()."""
+    pos = None
     for flag in ("seed", "gpt", "qwen"):
         if getattr(args, flag):
-            chosen = next((e for e in engines if e.alias == flag), None)
-            if chosen is None:
+            pos = next((i for i, e in enumerate(engines) if e.alias == flag), None)
+            if pos is None:
                 die(2, f"движок '{flag}' не описан в {CONF_NAME}")
-    if chosen is None:
-        chosen = engines[0]  # умолчание — первая строка конфига (seed)
-    rest = [e for e in engines if e.alias != chosen.alias]
-    return chosen, rest
+    if pos is None:
+        pos = 0  # умолчание — первая строка конфига (seed)
+    return engines[pos], engines[pos + 1:]
 
 
 def cmd_generate(args) -> int:
@@ -298,15 +355,16 @@ def cmd_generate(args) -> int:
         })
         return 0
 
-    paths: list[str] = []
-    used_engine: Engine | None = None
-    used_model = requested_model
-    reference_used = False
+    # Метаданные собираются ПО КАЖДОМУ кадру: в серии кадры могут разъехаться
+    # по моделям, и одно верхнеуровневое `model` на всю серию — это враньё.
+    frames: list[dict] = []
 
     for idx in range(args.n):
         target = out if args.n == 1 else out.with_name(f"{out.stem}-{idx + 1}{out.suffix}")
         errors: list[str] = []
-        frame: bytes | None = None
+        raw: bytes | None = None
+        frame_model = requested_model
+        frame_refs_used = False
 
         for engine, model in chain:
             send_refs = refs if (refs and engine.reference) else []
@@ -318,54 +376,90 @@ def cmd_generate(args) -> int:
             if engine is not chain[0][0] or model != requested_model:
                 log(f"fallback: {requested_model} недоступна → пробую {model}")
             try:
-                raw = request_image(engine, model, build_payload(model, prompt, args.size, send_refs))
+                kind, value = request_image(
+                    engine, model, build_payload(model, prompt, args.size, send_refs)
+                )
+                raw = fetch_image(value, model) if kind == "url" else value
             except ApiError as exc:
-                errors.append(str(exc))
                 log(f"error: {exc}")
+                if exc.fatal:
+                    if exc.status is None:  # сбой скачивания готового кадра — говорит сам за себя
+                        die(1, str(exc))
+                    parts = [f"движок '{engine.alias}' ({model}) отказал: HTTP {exc.status}"]
+                    hint = FATAL_HINTS.get(exc.status)
+                    if hint:
+                        parts.append(hint)
+                    if exc.status in (401, 402, 403):
+                        parts.append(
+                            "Все движки engines.conf ходят в один openrouter.ai с одним ключом, "
+                            "так что подмена движка тут не помогает"
+                        )
+                    die(1, ". ".join(parts) + f". Ответ: {exc}")
+                errors.append(str(exc))
                 continue
-            frame = raw
-            used_engine, used_model = engine, model
-            reference_used = bool(send_refs)
+            frame_model = model
+            frame_refs_used = bool(send_refs)
             break
 
-        if frame is None:
+        if raw is None:
+            frame_no = f"кадр {idx + 1}/{args.n}: " if args.n > 1 else ""
             if args.no_fallback:
-                die(1, "модель недоступна, а --no-fallback запрещает подмену. " + "; ".join(errors))
-            die(1, "ни один движок не отдал кадр. " + "; ".join(errors))
+                die(1, f"{frame_no}движок '{chain[0][0].alias}' ({requested_model}) не отдал кадр, "
+                       "а --no-fallback запрещает подмену. " + "; ".join(errors))
+            die(1, f"{frame_no}ни один движок не отдал кадр. " + "; ".join(errors))
 
-        png = to_png_bytes(frame)
+        png = to_png_bytes(raw)
         if args.transparent:
             png = cut_background(png)
         write_atomic(target, png)
-        paths.append(str(target))
+        frame = {
+            "path": str(target),
+            "model": frame_model,
+            "fallback": frame_model != requested_model,
+            "reference_used": frame_refs_used,
+        }
+        frames.append(frame)
         write_log(target, {
             "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "path": str(target),
-            "model": used_model,
+            "path": frame["path"],
+            "model": frame["model"],
             "requested_model": requested_model,
             "size": args.size,
             "references": [str(r) for r in refs],
-            "reference_used": reference_used,
+            "reference_used": frame["reference_used"],
             "transparent": bool(args.transparent),
             "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16],
         })
+        if frame["fallback"]:
+            log(
+                f"fallback: заказана {requested_model}, {frame['path']} нарисован {frame['model']}. "
+                "Кадр другой модели — другая манера; для серий используй --no-fallback."
+            )
 
-    result = {
-        "path": paths[0],
-        "model": used_model,
-        "requested_model": requested_model,
-        "fallback": used_model != requested_model,
-        "size": args.size,
-        "reference_used": reference_used,
-        "transparent": bool(args.transparent),
-    }
-    if args.n > 1:
-        result["paths"] = paths
-    if result["fallback"]:
-        log(
-            f"fallback: заказана {requested_model}, кадр нарисован {used_model}. "
-            "Кадр другой модели — другая манера; для серий используй --no-fallback."
-        )
+    if args.n == 1:
+        one = frames[0]
+        result = {
+            "path": one["path"],
+            "model": one["model"],
+            "requested_model": requested_model,
+            "fallback": one["fallback"],
+            "size": args.size,
+            "reference_used": one["reference_used"],
+            "transparent": bool(args.transparent),
+        }
+    else:
+        # Для серии верхнеуровневая модель отсутствует нарочно: она была бы враньём.
+        # `fallback: false` на верхнем уровне означает «ни один кадр не подменён» —
+        # ровно то, что проверяют в приёмке серий.
+        result = {
+            "path": frames[0]["path"],
+            "requested_model": requested_model,
+            "fallback": any(f["fallback"] for f in frames),
+            "size": args.size,
+            "transparent": bool(args.transparent),
+            "n": len(frames),
+            "paths": frames,
+        }
     emit(result)
     return 0
 
@@ -381,6 +475,12 @@ def cmd_remove_bg(args) -> int:
     dst = Path(args.out).expanduser()
     if not src.is_file():
         die(2, f"файл не найден: {src}")
+    try:
+        same = dst.resolve() == src.resolve()
+    except OSError:
+        same = False
+    if same:
+        die(2, f"--out совпадает с --in ({src}): исходник затёрся бы обтравкой, укажи другой путь")
     png = cut_background(to_png_bytes(src.read_bytes()))
     write_atomic(dst, png)
     emit({"path": str(dst), "source": str(src), "transparent": True})
@@ -432,8 +532,25 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """Точка входа. Ни одно исключение не должно выйти голым traceback'ом:
+    вызывающий агент парсит stdout как JSON, поэтому при сбое stdout остаётся
+    пустым, диагностика уходит в stderr, код возврата — 2."""
     args = build_parser().parse_args()
-    return args.func(args)
+    try:
+        return args.func(args)
+    except SystemExit:
+        raise  # die() уже всё напечатал
+    except KeyboardInterrupt:
+        print("error: прервано пользователем", file=sys.stderr, flush=True)
+        return 2
+    except Exception as exc:
+        if os.environ.get("IMAGE_GEN_DEBUG"):
+            import traceback
+
+            traceback.print_exc()
+        print(f"error: непредвиденный сбой — {type(exc).__name__}: {exc}. "
+              "Подробности: IMAGE_GEN_DEBUG=1", file=sys.stderr, flush=True)
+        return 2
 
 
 if __name__ == "__main__":
