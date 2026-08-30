@@ -1,7 +1,7 @@
 {
   "name": "skill-smith",
   "displayName": "Skill smith",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Engineering discipline for Claude Code configuration: pick the right mechanism before writing anything, take the frontmatter from the live docs instead of memory, match the wording to the failure it fixes, and ship only after a static validator and a fresh-context trigger check.",
   "author": {
     "name": "Dmitry Fomin",

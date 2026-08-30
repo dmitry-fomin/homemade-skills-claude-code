@@ -1,7 +1,7 @@
 # Механизмы расширения Claude Code: что выбрать и как это выглядит на диске
 
-Сверено 2026-08-30 по code.claude.com/docs/en/{skills,hooks,sub-agents,plugins-reference,plugin-marketplaces}.md
-и agentskills.io. Перед правкой — перечитай первоисточник.
+Сверено 2026-08-30 на Claude Code 2.1.251 по code.claude.com/docs/en/{skills,hooks,sub-agents,
+plugins-reference,plugin-marketplaces}.md и agentskills.io. Перед правкой — перечитай первоисточник.
 
 ## Карта решений
 

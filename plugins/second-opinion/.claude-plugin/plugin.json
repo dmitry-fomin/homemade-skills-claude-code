@@ -1,7 +1,7 @@
 {
   "name": "second-opinion",
   "displayName": "Second opinion",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Check a risky hypothesis against an independent LLM — DeepSeek, Gemini, GPT, Grok, or any model on OpenRouter — through one OpenAI-compatible script.",
   "author": {
     "name": "Dmitry Fomin",
