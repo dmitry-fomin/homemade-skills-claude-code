@@ -1,7 +1,7 @@
 # SKILL.md frontmatter — полный контракт
 
 Источник: https://code.claude.com/docs/en/skills (раздел *Frontmatter reference*),
-сверено 2026-08-30 на Claude Code 2.1.251.
+сверено 2026-09-06 на Claude Code 2.1.261.
 Портируемое подмножество: https://agentskills.io/specification.
 **Перед правкой этого файла перечитай первоисточник — поля добавляются.**
 
