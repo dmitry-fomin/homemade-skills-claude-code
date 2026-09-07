@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# consult.sh <provider> [model] < prompt.txt
+# consult.sh <provider> [model] [--stage N] [--portion X] [--note "текст"] < prompt.txt
 #
 # Печатает текстовый ответ внешней модели в stdout. Ошибки — в stderr, ненулевой exit code.
+# Если задан журнал использования моделей (см. log_usage ниже), пишет туда строку
+# на каждый вызов провайдера — и на успехе, и на отказе.
 # Все провайдеры — OpenAI-совместимый /chat/completions; список провайдеров и их
 # url/переменная-токена/модель-по-умолчанию — в providers.conf рядом со скриптом.
 # Чтобы добавить нового провайдера, правь только providers.conf.
@@ -30,7 +32,7 @@ conf_providers() {
 }
 
 usage() {
-  echo "usage: consult.sh <provider> [model] < prompt.txt" >&2
+  echo "usage: consult.sh <provider> [model] [--stage N] [--portion X] [--note \"текст\"] < prompt.txt" >&2
   echo "       consult.sh challenge < statement.txt   # локально, без вызова модели" >&2
   [[ -f "$CONF_FILE" ]] && echo "провайдеры: grok,$(conf_providers)" >&2
   exit 2
@@ -40,6 +42,26 @@ for bin in curl jq; do
   command -v "$bin" >/dev/null 2>&1 || die 2 "нужен '$bin' в PATH"
 done
 [[ -f "$CONF_FILE" ]] || die 2 "не найден конфиг провайдеров: $CONF_FILE"
+
+# Этап/порция/пометка для журнала — флагами, а не только переменными окружения:
+# правило allowed-tools матчится по началу команды, и префикс вида
+# `SO_STAGE=2 consult.sh …` под него не попадает — каждый вызов упирался бы в
+# запрос прав. Переменные поддержаны как запасной путь для вызова из скриптов.
+positional=()
+so_stage="${SO_STAGE:-}"
+so_portion="${SO_PORTION:-}"
+so_note="${SO_NOTE:-}"
+so_log="${MODEL_USAGE_LOG:-}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --stage)   so_stage="${2:-}"; shift 2 ;;
+    --portion) so_portion="${2:-}"; shift 2 ;;
+    --note)    so_note="${2:-}"; shift 2 ;;
+    --log)     so_log="${2:-}"; shift 2 ;;
+    *)         positional+=("$1"); shift ;;
+  esac
+done
+set -- ${positional[@]+"${positional[@]}"}
 
 provider="${1:-}"
 model_override="${2:-}"
@@ -115,6 +137,74 @@ CHEOF
   exit 0
 fi
 
+# --- журнал использования моделей (JSONL, одна строка на вызов) ----------
+# Путь берётся из --log/MODEL_USAGE_LOG; если не задан — из корня git-репозитория
+# рабочего каталога, и только когда файл там УЖЕ существует. Скил общий: заводить
+# журнал в чужом проекте по своей инициативе нельзя, а завести его один раз
+# (`mkdir -p docs/process && touch docs/process/model-usage.jsonl`) — это и есть
+# согласие проекта на учёт. Формат строки совпадает с tools/model-stat.sh:
+# один журнал на все каналы, разделяются полем channel.
+usage_model=""
+usage_tokens_in=0
+usage_tokens_out=0
+
+resolve_usage_log() {
+  if [[ -n "$so_log" ]]; then
+    printf '%s' "$so_log"
+    return 0
+  fi
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  [[ -z "$root" ]] && return 0
+  local default="${root}/docs/process/model-usage.jsonl"
+  [[ -f "$default" ]] && printf '%s' "$default"
+  return 0
+}
+
+# Вызывается из trap на любом выходе. Внутри не должно падать ничего: ошибка
+# журналирования не имеет права превратить успешный ответ модели в отказ,
+# поэтому каждый шаг гасится `|| true` / `2>/dev/null`.
+log_usage() {
+  local rc="$1"
+  local log status dir
+  log="$(resolve_usage_log)" || return 0
+  [[ -z "$log" ]] && return 0
+  dir="$(dirname "$log")"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  status="ok"
+  [[ "$rc" -ne 0 ]] && status="error"
+  jq -c -n \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg channel "second-opinion" \
+    --arg provider "$provider" \
+    --arg model "$usage_model" \
+    --arg stage "$so_stage" \
+    --arg portion "$so_portion" \
+    --arg status "$status" \
+    --arg note "$so_note" \
+    --argjson rc "$rc" \
+    --argjson secs "$SECONDS" \
+    --argjson tokens_in "$usage_tokens_in" \
+    --argjson tokens_out "$usage_tokens_out" \
+    '{ts:$ts,channel:$channel,provider:$provider,model:$model,stage:$stage,portion:$portion,
+      status:$status,rc:$rc,secs:$secs,tokens_in:$tokens_in,tokens_out:$tokens_out,note:$note}' \
+    >> "$log" 2>/dev/null || true
+  return 0
+}
+
+# Один trap на весь дальнейший путь: и запись в журнал, и уборка temp-файлов.
+# Ставится здесь, а не в HTTP-ветке, — иначе отказы до неё (заблокированный
+# секрет, неизвестный провайдер, отсутствующий ключ) в журнал не попадают,
+# а именно они и есть «отказ», который просили учитывать.
+tmp_files=()
+on_exit() {
+  local rc=$?
+  log_usage "$rc"
+  [[ ${#tmp_files[@]} -eq 0 ]] || rm -f "${tmp_files[@]}"
+  exit "$rc"
+}
+trap on_exit EXIT
+
 # --- эвристический guard от утечки секретов. Best-effort, не панацея: ---
 # --- ответственность за то, что уходит наружу, на вызывающем. ---
 # Паттерн ключ=значение нарочно требует длинное (16+) значение из
@@ -173,6 +263,8 @@ if [[ "$provider" == "grok" ]]; then
   grok_bin="${GROK_BIN:-grok}"
   command -v "$grok_bin" >/dev/null 2>&1 \
     || die 2 "grok CLI не найден в PATH — установи плагин grok и выполни /grok:setup (или /grok:login), либо укажи путь через переменную GROK_BIN"
+
+  usage_model="${model_override:-}"
 
   grok_prompt="$prompt"
   [[ $use_system -eq 1 ]] && grok_prompt="${SYSTEM_PROMPT}"$'\n\n---\n\n'"${prompt}"
@@ -234,14 +326,11 @@ lookup="$(awk -F'|' -v p="$provider" '
 
 IFS=$'\t' read -r _ base_url token_env default_model <<<"$lookup"
 model="${model_override:-$default_model}"
+usage_model="$model"
 [[ -z "$model" ]] && die 2 "для провайдера '$provider' нет модели по умолчанию — укажи вторым аргументом"
 
 require_env "$token_env"
 token_val="${!token_env}"
-
-tmp_files=()
-cleanup() { local rc=$?; [[ ${#tmp_files[@]} -eq 0 ]] || rm -f "${tmp_files[@]}"; exit "$rc"; }
-trap cleanup EXIT
 
 HTTP_CODE=""
 RESP_FILE=""
@@ -362,4 +451,13 @@ fi
 
 post_json "$provider" "${base_url%/}/chat/completions" "Authorization: Bearer ${token_val}" "$payload"
 handle_common_errors "$provider"
+
+# Токены для журнала — из .usage ответа. Поле необязательное и у части
+# провайдеров отсутствует, поэтому любое неудачное чтение молча даёт 0:
+# учёт не должен ронять уже полученный ответ.
+usage_tokens_in="$(jq -r '.usage.prompt_tokens // 0' "$RESP_FILE" 2>/dev/null || echo 0)"
+usage_tokens_out="$(jq -r '.usage.completion_tokens // 0' "$RESP_FILE" 2>/dev/null || echo 0)"
+[[ "$usage_tokens_in" =~ ^[0-9]+$ ]] || usage_tokens_in=0
+[[ "$usage_tokens_out" =~ ^[0-9]+$ ]] || usage_tokens_out=0
+
 parse_openai_style "$provider"
