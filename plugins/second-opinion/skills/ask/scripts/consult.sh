@@ -138,12 +138,17 @@ CHEOF
 fi
 
 # --- журнал использования моделей (JSONL, одна строка на вызов) ----------
-# Путь берётся из --log/MODEL_USAGE_LOG; если не задан — из корня git-репозитория
-# рабочего каталога, и только когда файл там УЖЕ существует. Скил общий: заводить
-# журнал в чужом проекте по своей инициативе нельзя, а завести его один раз
+# Путь берётся из --log/MODEL_USAGE_LOG; если не задан — ищем docs/process/model-usage.jsonl
+# обходом каталогов вверх от рабочего, и только когда файл УЖЕ существует. Скил общий:
+# заводить журнал в чужом проекте по своей инициативе нельзя, а завести его один раз
 # (`mkdir -p docs/process && touch docs/process/model-usage.jsonl`) — это и есть
 # согласие проекта на учёт. Формат строки совпадает с tools/model-stat.sh:
 # один журнал на все каналы, разделяются полем channel.
+#
+# Обход вверх, а не `git rev-parse --show-toplevel`: git отказывается работать
+# в репозитории с чужим владельцем ("dubious ownership") — например, когда репо
+# живёт внутри контейнера, а вызов идёт с хоста. Учёт молча отключался бы ровно
+# там, где он нужен.
 usage_model=""
 usage_tokens_in=0
 usage_tokens_out=0
@@ -153,11 +158,15 @@ resolve_usage_log() {
     printf '%s' "$so_log"
     return 0
   fi
-  local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [[ -z "$root" ]] && return 0
-  local default="${root}/docs/process/model-usage.jsonl"
-  [[ -f "$default" ]] && printf '%s' "$default"
+  local dir
+  dir="$PWD"
+  while [[ -n "$dir" && "$dir" != "/" ]]; do
+    if [[ -f "${dir}/docs/process/model-usage.jsonl" ]]; then
+      printf '%s' "${dir}/docs/process/model-usage.jsonl"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
   return 0
 }
 
