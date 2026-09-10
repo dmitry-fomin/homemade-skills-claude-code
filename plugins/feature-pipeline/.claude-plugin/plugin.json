@@ -1,7 +1,7 @@
 {
   "name": "feature-pipeline",
   "displayName": "Feature pipeline",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Route a feature through four stages — spec plus acceptance checklist, an outside opinion, implementation, and an independent verification — while the main context only orchestrates and never writes the code itself. Three flavours: feature-pipeline delegates implementation to another agentic harness (Grok Build or DeepSeek); local-pipeline runs every stage on pinned Claude subagents (Fable spec, Opus critique, Sonnet implementation, Opus judge); cheap-pipeline is the low-cost crew (Opus spec, Gemini critique, DeepSeek Harness implementation, Sonnet judge). Stage questions are relayed to the author.",
   "author": {
     "name": "Dmitry Fomin",
