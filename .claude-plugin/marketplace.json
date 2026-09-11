@@ -39,8 +39,8 @@
     {
       "name": "feature-pipeline",
       "source": "./plugins/feature-pipeline",
-      "description": "Route a feature through spec, outside opinion, implementation and independent verification while the main context only orchestrates: feature-pipeline (Grok Build or DeepSeek implements), local-pipeline (pinned Claude subagents), cheap-pipeline (low-cost crew), and opus-pipeline (simple tracker tasks in parallel worktrees: Opus implements, a Sonnet judge verifies and commits). Stage questions are relayed to the author.",
-      "version": "0.7.0",
+      "description": "Route a feature through spec, outside opinion, implementation and independent verification while the main context only orchestrates: feature-pipeline (Grok Build or DeepSeek implements), local-pipeline (pinned Claude subagents), cheap-pipeline (low-cost crew), and opus-pipeline (simple tracker tasks in parallel worktrees: Opus implements, a Sonnet judge verifies and commits). Stage questions are relayed to the author; an opt-in hook auto-approves the pipeline agents' non-destructive commands.",
+      "version": "0.8.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"
