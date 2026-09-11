@@ -1,8 +1,8 @@
 ---
-name: pipeline-implementer
-description: Реализует одну порцию ТЗ по её файлу — локальный исполнитель конвейеров feature-pipeline, local-pipeline и opus-pipeline, внутри Claude. Берётся, когда внешние харнессы (grok, dsh) недоступны, или когда порция мелкая и звать наружу дороже, чем сделать здесь. Получает ровно один путь к файлу порции и больше ничего. Не коммитит и за границы порции не выходит.
+name: pipeline-implementer-high
+description: Тот же исполнитель одной порции ТЗ, что pipeline-implementer, но с effort high — для неочевидных порций; в opus-pipeline зовётся с model opus. Получает ровно один путь к файлу порции и больше ничего. Не коммитит и за границы порции не выходит.
 model: sonnet
-effort: medium
+effort: high
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
