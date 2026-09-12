@@ -30,7 +30,7 @@
       "name": "second-opinion",
       "source": "./plugins/second-opinion",
       "description": "Check a risky hypothesis against an independent LLM — DeepSeek, Gemini, GPT, Grok, or any model on OpenRouter — through one OpenAI-compatible script.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"
@@ -39,8 +39,8 @@
     {
       "name": "feature-pipeline",
       "source": "./plugins/feature-pipeline",
-      "description": "Route a feature through spec, outside opinion, implementation and independent verification while the main context only orchestrates: feature-pipeline (Grok Build or DeepSeek implements), local-pipeline (pinned Claude subagents), cheap-pipeline (low-cost crew), and opus-pipeline (simple tracker tasks in parallel worktrees: Opus implements, a Sonnet judge verifies and commits). Stage questions are relayed to the author; an opt-in hook auto-approves the pipeline agents' non-destructive commands.",
-      "version": "0.8.1",
+      "description": "Route a feature through spec, outside opinion, implementation and independent verification while the main context only orchestrates. Five preset crews picked from a measured model snapshot (references/ROLES.md): balance-pipeline, max-pipeline, workhorse-pipeline, budget-pipeline and single-pass-pipeline — the author's side inside Anthropic, the critic and the judge from other vendors, with the shared stage protocol in references/pipeline-core.md. Plus the four original flavours: feature-pipeline, local-pipeline, cheap-pipeline and opus-pipeline. Stage questions are relayed to the author; an opt-in hook auto-approves the pipeline agents' non-destructive commands.",
+      "version": "0.9.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"
