@@ -40,7 +40,7 @@
       "name": "feature-pipeline",
       "source": "./plugins/feature-pipeline",
       "description": "Route a feature through spec, outside opinion, implementation and independent verification while the main context only orchestrates. Five preset crews picked from a measured model snapshot (references/ROLES.md): high-pipeline, xhigh-pipeline, medium-pipeline, low-pipeline and opus-single-pipeline — the author's side inside Anthropic, the critic and the judge from other vendors, with the shared stage protocol in references/pipeline-core.md. Plus the three original flavours: feature-pipeline, inherit-pipeline and opus-sonnet-pipeline. Stage questions are relayed to the author; an opt-in hook auto-approves the pipeline agents' non-destructive commands.",
-      "version": "0.11.0",
+      "version": "0.13.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"
