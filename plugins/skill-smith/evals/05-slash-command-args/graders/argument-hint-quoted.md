@@ -1,6 +1,7 @@
 ---
 type: regex
-target: {source: file, path: .claude/skills/release/SKILL.md}
+target: trace
 match: contains
+weight: 0.5
 ---
-argument-hint:\s*["']\[version\]["']
+argument-hint

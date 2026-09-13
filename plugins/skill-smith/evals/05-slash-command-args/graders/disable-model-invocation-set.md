@@ -1,7 +1,9 @@
 ---
-type: regex
-target: {source: file, path: .claude/skills/release/SKILL.md}
-match: contains
-flags: i
+type: llm
+focus: trace
+weight: 1
 ---
-disable-model-invocation:\s*true
+Проверь по утверждениям:
+1. Создан файл, реализующий слэш-команду `/release` (либо `.claude/skills/release/SKILL.md`, либо `.claude/commands/release.md`), которая обновляет CHANGELOG.md по переданной версии.
+2. Если это скил (`.claude/skills/release/SKILL.md`), в его frontmatter стоит `disable-model-invocation: true` — команда меняет файлы проекта и должна вызываться только по прямой команде человека, а не по решению модели. Если это классическая слэш-команда в `.claude/commands/`, этот пункт не применим и не считается нарушением.
+3. Аргумент версии описан через `argument-hint` (или аналогичный механизм подсказки аргумента), и значение вида `[version]` взято в кавычки.

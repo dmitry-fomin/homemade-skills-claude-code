@@ -1,5 +1,6 @@
 ---
-type: file_exists
-path: .claude/skills/*/SKILL.md
-exists: true
+type: regex
+target: files
+match: contains
 ---
+SKILL\.md
