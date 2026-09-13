@@ -22,7 +22,6 @@ AGENTS = {
     "feature-pipeline:pipeline-implementer-high",
     "feature-pipeline:pipeline-implementer-solo",
     "feature-pipeline:pipeline-judge",
-    "feature-pipeline:pipeline-judge-medium",
 }
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
