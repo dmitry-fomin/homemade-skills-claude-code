@@ -1,8 +1,8 @@
 {
   "name": "image-gen",
   "displayName": "Image gen",
-  "version": "0.2.0",
-  "description": "Prompt to PNG on disk through OpenRouter — seedream, gpt-image, qwen-image — plus rembg background removal, with the prompting lore that makes the frames usable.",
+  "version": "0.3.0",
+  "description": "Prompt to PNG on disk — gpt-image-2 via CloseRouter (reference-driven, keeps faces) and qwen-image via OpenRouter — plus rembg background removal, with the prompting lore that makes the frames usable.",
   "author": {
     "name": "Dmitry Fomin",
     "url": "https://github.com/dmitry-fomin"
@@ -12,8 +12,8 @@
   "license": "MIT",
   "keywords": [
     "image-generation",
+    "closerouter",
     "openrouter",
-    "seedream",
     "gpt-image",
     "qwen-image",
     "rembg"

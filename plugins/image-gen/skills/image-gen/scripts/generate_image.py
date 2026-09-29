@@ -39,6 +39,7 @@ from pathlib import Path
 SIZES = ["1024x1024", "1024x1536", "1536x1024", "auto"]
 CONF_NAME = "engines.conf"
 LOG_NAME = ".image-gen.log"
+REF_MODES = {"edits", "json", "no"}
 
 REQUEST_TIMEOUT = 300.0
 RETRY_STATUSES = {429, 500, 502, 503, 504}
@@ -46,13 +47,12 @@ RETRY_PAUSES = [2, 6, 14]  # повтор той же моделью — это 
 DOWNLOAD_PAUSES = [2, 6, 14]  # повтор скачивания готового кадра — генерация не повторяется
 
 # Коды, при которых менять движок бессмысленно: это не «движок недоступен», а
-# отказ по запросу, ключу или счёту. Все строки engines.conf ходят в один
-# openrouter.ai с одним ключом, поэтому фолбэк на 401/402/403 не помогает в принципе.
+# отказ по запросу, ключу или счёту: чинится запрос или счёт, а не сменой модели.
 FATAL_STATUSES = {400, 401, 402, 403, 404, 422}
 FATAL_HINTS = {
     400: "Запрос отклонён — проверь --size, --prompt и референсы",
-    401: "Ключ отвергнут — проверь OPENROUTER_API_KEY (объявлен в ~/.zshenv)",
-    402: "Недостаточно средств на счёте OpenRouter — пополни баланс",
+    401: "Ключ отвергнут — проверь переменную ключа этого движка в engines.conf (объявлена в ~/.zshenv)",
+    402: "Недостаточно средств на счёте провайдера этого движка — пополни баланс",
     403: "Доступ к модели закрыт — проверь права ключа на этот слаг",
     404: "Модель не найдена — проверь слаг в engines.conf или IMAGE_GEN_MODEL",
     422: "Запрос отклонён провайдером — проверь размер и формат референсов",
@@ -78,7 +78,10 @@ class Engine:
         self.base_url = base_url.rstrip("/")
         self.key_var = key_var
         self.model = model
-        self.reference = reference.strip().lower() in ("yes", "true", "1", "on")
+        mode = reference.strip().lower()
+        if mode not in REF_MODES:
+            die(2, f"{CONF_NAME}: у движка '{alias}' референс '{reference}', ждём одно из {sorted(REF_MODES)}")
+        self.reference = None if mode == "no" else mode  # "edits" | "json" | None
 
     def __repr__(self):
         return f"<{self.alias} {self.model}>"
@@ -134,16 +137,26 @@ def data_url(path: Path) -> str:
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-def build_payload(model: str, prompt: str, size: str, refs: list[Path]) -> dict:
-    payload: dict = {"model": model, "prompt": prompt, "n": 1}
+def build_request(engine: Engine, model: str, prompt: str, size: str, refs: list[Path]) -> tuple[str, dict]:
+    """Эндпоинт и тело запроса под способ, которым движок принимает референс."""
+    fields: dict = {"model": model, "prompt": prompt, "n": 1}
     if size != "auto":
-        payload["size"] = size
+        fields["size"] = size
+    if refs and engine.reference == "edits":
+        # тип файла указываем явно: без него CloseRouter отвечает 400 на любой формат
+        files = [
+            ("image[]", (p.name, p.read_bytes(), mimetypes.guess_type(p.name)[0] or "image/png"))
+            for p in refs
+        ]
+        return f"{engine.base_url}/images/edits", {
+            "data": {k: str(v) for k, v in fields.items()}, "files": files,
+        }
     if refs:
-        payload["image"] = [data_url(p) for p in refs]
-    return payload
+        fields["image"] = [data_url(p) for p in refs]
+    return f"{engine.base_url}/images/generations", {"json": fields}
 
 
-def request_image(engine: Engine, model: str, payload: dict) -> tuple[str, object]:
+def request_image(engine: Engine, model: str, request: tuple[str, dict]) -> tuple[str, object]:
     """Один кадр от одной модели. Повтор на 429/5xx — фолбэком не считается.
 
     Возвращает дескриптор кадра: ("b64", bytes) или ("url", str). Скачивание по url
@@ -152,16 +165,13 @@ def request_image(engine: Engine, model: str, payload: dict) -> tuple[str, objec
     """
     import httpx
 
-    url = f"{engine.base_url}/images/generations"
-    headers = {
-        "Authorization": f"Bearer {api_key(engine)}",
-        "Content-Type": "application/json",
-    }
+    url, body = request
+    headers = {"Authorization": f"Bearer {api_key(engine)}"}  # Content-Type ставит httpx
     last: Exception | None = None
     for attempt in range(len(RETRY_PAUSES) + 1):
         try:
             with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                resp = client.post(url, headers=headers, json=payload)
+                resp = client.post(url, headers=headers, **body)
             if resp.status_code in RETRY_STATUSES and attempt < len(RETRY_PAUSES):
                 pause = RETRY_PAUSES[attempt]
                 log(f"{model}: HTTP {resp.status_code}, повтор той же моделью через {pause} с")
@@ -238,7 +248,7 @@ def fetch_image(url: str, model: str) -> bytes:
 # --- запись ---------------------------------------------------------------
 
 def to_png_bytes(raw: bytes) -> bytes:
-    """Движки отдают кто PNG, кто JPEG (seedream — JPEG). На диск всегда PNG."""
+    """Движки отдают кто PNG, кто JPEG. На диск всегда PNG."""
     from PIL import Image
 
     with Image.open(io.BytesIO(raw)) as im:
@@ -291,13 +301,13 @@ def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
     как обещают и конфиг, и SKILL.md. Новый движок в конфиге требует правки
     списка флагов здесь и в build_parser()."""
     pos = None
-    for flag in ("seed", "gpt", "qwen"):
+    for flag in ("gpt", "qwen"):
         if getattr(args, flag):
             pos = next((i for i, e in enumerate(engines) if e.alias == flag), None)
             if pos is None:
                 die(2, f"движок '{flag}' не описан в {CONF_NAME}")
     if pos is None:
-        pos = 0  # умолчание — первая строка конфига (seed)
+        pos = 0  # умолчание — первая строка конфига (gpt)
     return engines[pos], engines[pos + 1:]
 
 
@@ -337,20 +347,23 @@ def cmd_generate(args) -> int:
     out = Path(args.out).expanduser()
 
     if args.dry_run:
-        payload = build_payload(requested_model, prompt, args.size, refs if chosen.reference else [])
-        preview = dict(payload)
+        endpoint, body = build_request(chosen, requested_model, prompt, args.size,
+                                       refs if chosen.reference else [])
+        preview = dict(body.get("json") or body.get("data"))
         if "image" in preview:
             preview["image"] = [f"<{len(refs)} референс(ов), data-url>"]
+        if "files" in body:
+            preview["image[]"] = [f"<файл {f[1][0]}, {f[1][2]}>" for f in body["files"]]
         emit({
             "path": str(out),
             "model": requested_model,
             "requested_model": requested_model,
             "fallback": False,
             "size": args.size,
-            "reference_used": bool(refs) and chosen.reference,
+            "reference_used": bool(refs and chosen.reference),
             "transparent": bool(args.transparent),
             "dry_run": True,
-            "endpoint": f"{chosen.base_url}/images/generations",
+            "endpoint": endpoint,
             "request": preview,
         })
         return 0
@@ -377,7 +390,7 @@ def cmd_generate(args) -> int:
                 log(f"fallback: {requested_model} недоступна → пробую {model}")
             try:
                 kind, value = request_image(
-                    engine, model, build_payload(model, prompt, args.size, send_refs)
+                    engine, model, build_request(engine, model, prompt, args.size, send_refs)
                 )
                 raw = fetch_image(value, model) if kind == "url" else value
             except ApiError as exc:
@@ -389,11 +402,6 @@ def cmd_generate(args) -> int:
                     hint = FATAL_HINTS.get(exc.status)
                     if hint:
                         parts.append(hint)
-                    if exc.status in (401, 402, 403):
-                        parts.append(
-                            "Все движки engines.conf ходят в один openrouter.ai с одним ключом, "
-                            "так что подмена движка тут не помогает"
-                        )
                     die(1, ". ".join(parts) + f". Ответ: {exc}")
                 errors.append(str(exc))
                 continue
@@ -492,7 +500,7 @@ def cmd_remove_bg(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="generate_image.py",
-        description="Генерация изображений через OpenRouter и обтравка готового файла.",
+        description="Генерация изображений (CloseRouter, OpenRouter) и обтравка готового файла.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -515,9 +523,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--reference", action="append", metavar="PATH",
                    help="референсный кадр; флаг повторяемый")
     engine = g.add_mutually_exclusive_group()
-    engine.add_argument("--seed", action="store_true", help="bytedance-seed/seedream-5-0-pro (умолчание)")
-    engine.add_argument("--gpt", action="store_true", help="gpt-image-2 (референс не держит)")
-    engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro")
+    engine.add_argument("--gpt", action="store_true", help="openai/gpt-image-2 через CloseRouter (умолчание)")
+    engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
     g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка")
     g.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
     g.add_argument("--n", type=int, default=1, metavar="K", help="K кадров, суффиксы -1..-K")

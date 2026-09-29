@@ -17,7 +17,7 @@ Skill bodies are written in Russian, because that is the language they work with
 /plugin install skill-smith@homemade-skills-claude-code
 ```
 
-Install only what a project needs — `image-gen` wants `uv` and an `OPENROUTER_API_KEY`,
+Install only what a project needs — `image-gen` wants `uv`, `CLOSEROUTER_SO_API_KEY` and `OPENROUTER_API_KEY`,
 `second-opinion` wants at least one LLM key, `feature-pipeline` wants an agentic harness to hand
 the code to (`grok` or `dsh`), and `writer` and `skill-smith` need nothing beyond `python3`.
 
@@ -28,7 +28,7 @@ Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 | Skill | Command | What it is for |
 | --- | --- | --- |
 | `writer` | `/writer:writer [lj\|vc]` | Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal (`lj`) and vc.ru (`vc`). |
-| `image-gen` | `/image-gen:image-gen` | Prompt to PNG on disk through OpenRouter (seedream / gpt-image / qwen-image), reference frames, `rembg` background removal — plus the prompting lore that makes the frames usable. Needs `uv` and `OPENROUTER_API_KEY`. |
+| `image-gen` | `/image-gen:image-gen` | Prompt to PNG on disk — gpt-image-2 via CloseRouter (default, keeps faces from a reference) or qwen-image via OpenRouter — `rembg` background removal — plus the prompting lore that makes the frames usable. Needs `uv`, `CLOSEROUTER_SO_API_KEY` and `OPENROUTER_API_KEY`. |
 | `second-opinion` | `/second-opinion:ask` | Checks a risky hypothesis against a model from a different family — DeepSeek, Gemini, GPT, Grok, Qwen, or anything on OpenRouter — through one OpenAI-compatible script. The value is a second set of blind spots, so instant complete agreement is treated as suspicious. Needs `DEEPSEEK_API_KEY` or `OPENROUTER_API_KEY`. |
 | `feature-pipeline` | `/feature-pipeline:feature-pipeline` | Routes a feature through four stages — spec plus acceptance checklist, an outside opinion on the design, implementation in another agentic harness, and an independent verification against the checklist — while the main context only orchestrates: it routes, keeps the journal, runs the guards and commits, and never writes the code itself. Needs the `grok` or `dsh` plugin, and `second-opinion` unless the channel is turned off. |
 | `skill-smith` | `/skill-smith:skill-smith` | Engineering discipline for Claude Code's own configuration — skills, slash commands, subagents, hooks, plugins, marketplaces, `settings.json`. Picks the mechanism before anything is written (a rule that must always hold is a hook, not a skill), takes frontmatter from the live docs instead of memory, matches the wording to the failure it fixes, and ships only after a static validator and a fresh-context trigger check. Ships `validate_skill.py`, which catches what the harness swallows silently. |
