@@ -340,6 +340,10 @@ def cmd_generate(args) -> int:
     override = os.environ.get("IMAGE_GEN_MODEL", "").strip()
     requested_model = override or chosen.model
 
+    # Движок, названный флагом, — это выбор человека: подменять его нельзя, только ошибка.
+    if args.gpt or args.qwen:
+        args.no_fallback = True
+
     chain: list[tuple[Engine, str]] = [(chosen, requested_model)]
     if not args.no_fallback:
         chain += [(e, e.model) for e in rest]
@@ -413,7 +417,7 @@ def cmd_generate(args) -> int:
             frame_no = f"кадр {idx + 1}/{args.n}: " if args.n > 1 else ""
             if args.no_fallback:
                 die(1, f"{frame_no}движок '{chain[0][0].alias}' ({requested_model}) не отдал кадр, "
-                       "а --no-fallback запрещает подмену. " + "; ".join(errors))
+                       "а подмена запрещена (движок назван флагом или --no-fallback). " + "; ".join(errors))
             die(1, f"{frame_no}ни один движок не отдал кадр. " + "; ".join(errors))
 
         png = to_png_bytes(raw)
@@ -525,7 +529,7 @@ def build_parser() -> argparse.ArgumentParser:
     engine = g.add_mutually_exclusive_group()
     engine.add_argument("--gpt", action="store_true", help="openai/gpt-image-2 через CloseRouter (умолчание)")
     engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
-    g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка")
+    g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при --gpt/--qwen включён сам)")
     g.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
     g.add_argument("--n", type=int, default=1, metavar="K", help="K кадров, суффиксы -1..-K")
     g.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")

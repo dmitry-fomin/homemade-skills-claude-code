@@ -1,7 +1,7 @@
 {
   "name": "image-gen",
   "displayName": "Image gen",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Prompt to PNG on disk — gpt-image-2 via CloseRouter (reference-driven, keeps faces) and qwen-image via OpenRouter — plus rembg background removal, with the prompting lore that makes the frames usable.",
   "author": {
     "name": "Dmitry Fomin",
