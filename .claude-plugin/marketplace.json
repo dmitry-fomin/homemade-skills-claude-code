@@ -20,7 +20,7 @@
       "name": "image-gen",
       "source": "./plugins/image-gen",
       "description": "Prompt to PNG on disk and prompt-driven edits of an existing image — gpt-image-2 via CloseRouter (keeps faces) and qwen-image via OpenRouter — plus rembg background removal, with the prompting lore that makes the frames usable.",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "license": "MIT",
       "author": {
         "name": "Dmitry Fomin"

@@ -137,9 +137,10 @@ def data_url(path: Path) -> str:
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-def build_request(engine: Engine, model: str, prompt: str, size: str, refs: list[Path]) -> tuple[str, dict]:
+def build_request(engine: Engine, model: str, prompt: str, size: str, refs: list[Path],
+                  extra: dict | None = None) -> tuple[str, dict]:
     """Эндпоинт и тело запроса под способ, которым движок принимает референс."""
-    fields: dict = {"model": model, "prompt": prompt, "n": 1}
+    fields: dict = {"model": model, "prompt": prompt, "n": 1, **(extra or {})}
     if size != "auto":
         fields["size"] = size
     if refs and engine.reference == "edits":
@@ -260,6 +261,19 @@ def to_png_bytes(raw: bytes) -> bytes:
     return buf.getvalue()
 
 
+def solidify_alpha(png: bytes) -> bytes:
+    """gpt отдаёт фигуру с альфой 252–253 вместо 255 — она чуть просвечивает при
+    наложении. Почти непрозрачное дотягиваем до 255, мягкий край не трогаем."""
+    from PIL import Image
+
+    with Image.open(io.BytesIO(png)) as im:
+        im = im.convert("RGBA")
+        im.putalpha(im.getchannel("A").point(lambda a: 255 if a >= 250 else a))
+        buf = io.BytesIO()
+        im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def cut_background(png: bytes) -> bytes:
     """rembg: бинарная обтравка keep/discard. Мягкого края не даёт — см. SKILL.md."""
     from PIL import Image
@@ -349,10 +363,13 @@ def cmd_generate(args) -> int:
         chain += [(e, e.model) for e in rest]
 
     out = Path(args.out).expanduser()
+    # edit --transparent: прозрачность рисует сам gpt (чистый край по волосам), rembg не нужен
+    native_bg = ({"background": "transparent", "output_format": "png"}
+                 if args.transparent and getattr(args, "native_bg", False) else None)
 
     if args.dry_run:
         endpoint, body = build_request(chosen, requested_model, prompt, args.size,
-                                       refs if chosen.reference else [])
+                                       refs if chosen.reference else [], native_bg)
         preview = dict(body.get("json") or body.get("data"))
         if "image" in preview:
             preview["image"] = [f"<{len(refs)} референс(ов), data-url>"]
@@ -394,7 +411,7 @@ def cmd_generate(args) -> int:
                 log(f"fallback: {requested_model} недоступна → пробую {model}")
             try:
                 kind, value = request_image(
-                    engine, model, build_request(engine, model, prompt, args.size, send_refs)
+                    engine, model, build_request(engine, model, prompt, args.size, send_refs, native_bg)
                 )
                 raw = fetch_image(value, model) if kind == "url" else value
             except ApiError as exc:
@@ -421,7 +438,9 @@ def cmd_generate(args) -> int:
             die(1, f"{frame_no}ни один движок не отдал кадр. " + "; ".join(errors))
 
         png = to_png_bytes(raw)
-        if args.transparent:
+        if native_bg:
+            png = solidify_alpha(png)
+        elif args.transparent:
             png = cut_background(png)
         write_atomic(target, png)
         frame = {
@@ -515,6 +534,7 @@ def cmd_edit(args) -> int:
         die(2, f"--out совпадает с --in ({src}): исходник затёрся бы правкой, укажи другой путь")
     args.reference = [str(src)] + (args.reference or [])
     args.gpt, args.qwen, args.no_fallback, args.n = True, False, True, 1
+    args.native_bg = True
     return cmd_generate(args)
 
 
@@ -567,7 +587,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="auto (умолчание) | 1024x1024 | 1024x1536 | 1536x1024")
     e.add_argument("--reference", action="append", metavar="PATH",
                    help="дополнительный образец (например, лицо или вещь); флаг повторяемый")
-    e.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
+    e.add_argument("--transparent", action="store_true",
+                   help="прозрачный фон силами gpt (кадр перерисовывается); только по явной просьбе")
     e.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")
     e.set_defaults(func=cmd_edit)
 
