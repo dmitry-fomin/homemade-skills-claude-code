@@ -499,12 +499,31 @@ def cmd_remove_bg(args) -> int:
     return 0
 
 
+# --- edit ---------------------------------------------------------------
+
+def cmd_edit(args) -> int:
+    """Правка готовой картинки: тот же конвейер, что generate, но исходник уходит
+    первым кадром в /images/edits, движок — только gpt, подмены нет."""
+    src = Path(args.src).expanduser()
+    if not src.is_file():
+        die(2, f"файл не найден: {src}")
+    try:
+        same = Path(args.out).expanduser().resolve() == src.resolve()
+    except OSError:
+        same = False
+    if same:
+        die(2, f"--out совпадает с --in ({src}): исходник затёрся бы правкой, укажи другой путь")
+    args.reference = [str(src)] + (args.reference or [])
+    args.gpt, args.qwen, args.no_fallback, args.n = True, False, True, 1
+    return cmd_generate(args)
+
+
 # --- CLI ------------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="generate_image.py",
-        description="Генерация изображений (CloseRouter, OpenRouter) и обтравка готового файла.",
+        description="Генерация и правка изображений (CloseRouter, OpenRouter), обтравка готового файла.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -534,6 +553,23 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--n", type=int, default=1, metavar="K", help="K кадров, суффиксы -1..-K")
     g.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")
     g.set_defaults(func=cmd_generate)
+
+    e = sub.add_parser(
+        "edit",
+        help="правка готовой картинки по промпту (gpt-image-2, /images/edits)",
+        epilog="Промпт — что поменять, по-английски. Размер по умолчанию auto: пропорции исходника.",
+    )
+    e.add_argument("--in", dest="src", required=True, help="картинка, которую правим")
+    e.add_argument("--prompt", help="что поменять (по-английски)")
+    e.add_argument("--prompt-file", help="файл с промптом")
+    e.add_argument("--out", required=True, help="куда положить PNG; не совпадает с --in")
+    e.add_argument("--size", default="auto", choices=SIZES, metavar="WxH",
+                   help="auto (умолчание) | 1024x1024 | 1024x1536 | 1536x1024")
+    e.add_argument("--reference", action="append", metavar="PATH",
+                   help="дополнительный образец (например, лицо или вещь); флаг повторяемый")
+    e.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
+    e.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")
+    e.set_defaults(func=cmd_edit)
 
     r = sub.add_parser("remove-bg", help="обтравка готового файла через rembg")
     r.add_argument("--in", dest="src", required=True, help="исходник")
