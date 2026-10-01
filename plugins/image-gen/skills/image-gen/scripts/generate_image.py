@@ -315,11 +315,12 @@ def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
     как обещают и конфиг, и SKILL.md. Новый движок в конфиге требует правки
     списка флагов здесь и в build_parser()."""
     pos = None
-    for flag in ("gpt", "qwen"):
-        if getattr(args, flag):
-            pos = next((i for i, e in enumerate(engines) if e.alias == flag), None)
+    for flag in ("gpt", "a6", "a6_25", "qwen"):
+        if getattr(args, flag, False):
+            alias = flag.replace("_", "-")
+            pos = next((i for i, e in enumerate(engines) if e.alias == alias), None)
             if pos is None:
-                die(2, f"движок '{flag}' не описан в {CONF_NAME}")
+                die(2, f"движок '{alias}' не описан в {CONF_NAME}")
     if pos is None:
         pos = 0  # умолчание — первая строка конфига (gpt)
     return engines[pos], engines[pos + 1:]
@@ -355,7 +356,7 @@ def cmd_generate(args) -> int:
     requested_model = override or chosen.model
 
     # Движок, названный флагом, — это выбор человека: подменять его нельзя, только ошибка.
-    if args.gpt or args.qwen:
+    if args.gpt or args.a6 or getattr(args, "a6_25", False) or args.qwen:
         args.no_fallback = True
 
     chain: list[tuple[Engine, str]] = [(chosen, requested_model)]
@@ -533,7 +534,8 @@ def cmd_edit(args) -> int:
     if same:
         die(2, f"--out совпадает с --in ({src}): исходник затёрся бы правкой, укажи другой путь")
     args.reference = [str(src)] + (args.reference or [])
-    args.gpt, args.qwen, args.no_fallback, args.n = True, False, True, 1
+    args.gpt, args.a6, args.qwen, args.no_fallback, args.n = True, False, False, True, 1
+    args.a6_25 = False
     args.native_bg = True
     return cmd_generate(args)
 
@@ -567,6 +569,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="референсный кадр; флаг повторяемый")
     engine = g.add_mutually_exclusive_group()
     engine.add_argument("--gpt", action="store_true", help="openai/gpt-image-2 через CloseRouter (умолчание)")
+    engine.add_argument("--a6", action="store_true", help="gpt-image-2 через A6 API")
+    engine.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 через A6 API")
     engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
     g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при --gpt/--qwen включён сам)")
     g.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
