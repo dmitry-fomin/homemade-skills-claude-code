@@ -1,8 +1,8 @@
 {
   "name": "image-gen",
   "displayName": "Image gen",
-  "version": "0.5.0",
-  "description": "Prompt to PNG on disk and prompt-driven edits of an existing image — gpt-image-2 via CloseRouter (keeps faces) and qwen-image via OpenRouter — plus rembg background removal, with the prompting lore that makes the frames usable.",
+  "version": "0.6.0",
+  "description": "Prompt to PNG on disk and prompt-driven edits of an existing image — gpt-image-2 via the A6 API provider by default (cheaper), the same model via CloseRouter as fallback and for reference frames (keeps faces), qwen-image via OpenRouter — plus rembg background removal, with the prompting lore that makes the frames usable.",
   "author": {
     "name": "Dmitry Fomin",
     "url": "https://github.com/dmitry-fomin"
@@ -12,6 +12,7 @@
   "license": "MIT",
   "keywords": [
     "image-generation",
+    "a6api",
     "closerouter",
     "openrouter",
     "gpt-image",

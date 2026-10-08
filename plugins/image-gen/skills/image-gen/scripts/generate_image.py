@@ -322,7 +322,10 @@ def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
             if pos is None:
                 die(2, f"движок '{alias}' не описан в {CONF_NAME}")
     if pos is None:
-        pos = 0  # умолчание — первая строка конфига (gpt)
+        # без референса — a6 (дешевле), фолбэк вниз на gpt у CloseRouter;
+        # с референсом — сразу gpt: A6 референс не держит и молча нарисовал бы без него
+        default = "gpt" if args.reference else "a6"
+        pos = next((i for i, e in enumerate(engines) if e.alias == default), 0)
     return engines[pos], engines[pos + 1:]
 
 
@@ -545,7 +548,7 @@ def cmd_edit(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="generate_image.py",
-        description="Генерация и правка изображений (CloseRouter, OpenRouter), обтравка готового файла.",
+        description="Генерация и правка изображений (A6, CloseRouter, OpenRouter), обтравка готового файла.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -568,11 +571,11 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--reference", action="append", metavar="PATH",
                    help="референсный кадр; флаг повторяемый")
     engine = g.add_mutually_exclusive_group()
-    engine.add_argument("--gpt", action="store_true", help="openai/gpt-image-2 через CloseRouter (умолчание)")
-    engine.add_argument("--a6", action="store_true", help="gpt-image-2 через A6 API")
-    engine.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 через A6 API")
+    engine.add_argument("--gpt", action="store_true", help="gpt-image-2 у провайдера CloseRouter (умолчание при --reference, фолбэк после --a6)")
+    engine.add_argument("--a6", action="store_true", help="gpt-image-2 у провайдера A6 (умолчание без --reference)")
+    engine.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 у провайдера A6, только по флагу")
     engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
-    g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при --gpt/--qwen включён сам)")
+    g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при явном флаге движка включён сам)")
     g.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
     g.add_argument("--n", type=int, default=1, metavar="K", help="K кадров, суффиксы -1..-K")
     g.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")
