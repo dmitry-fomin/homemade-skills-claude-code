@@ -89,8 +89,8 @@ labels:
   - "traefik.http.routers.example-https.rule=Host(`example.com`) || Host(`www.example.com`)"
   - "traefik.http.routers.example-https.entrypoints=websecure"
   - "traefik.http.routers.example-https.tls=true"
-  # ЯВНО. Без этой строки прилетит production-резолвер с entrypoint.
-  - "traefik.http.routers.example-https.tls.certresolver=letsencrypt-staging"
+  # ЯВНО, сразу production — после предпроверки ниже. Staging не используем.
+  - "traefik.http.routers.example-https.tls.certresolver=letsencrypt"
   - "traefik.http.routers.example-https.tls.domains[0].main=example.com"
   - "traefik.http.routers.example-https.tls.domains[0].sans=www.example.com"
   - "traefik.http.routers.example-https.middlewares=compress@file"
@@ -101,13 +101,37 @@ labels:
 
 `example` — короткое уникальное имя стэка без точек и слэшей.
 
-### Staging → production
+### Сертификат: сразу production, после предпроверки
 
-`letsencrypt-staging` стоит первым, пока не проверены DNS и роутинг. На staging-серте браузер
-ругается — это ожидаемо. После успешной выдачи меняешь резолвер на production и передеплоиваешь.
+Staging-шаг не используется. В Traefik 3.6 смена `letsencrypt-staging` → `letsencrypt` боевой
+сертификат **не выпускает**: действующий staging-серт лежит в `acme-staging.json`, Traefik отдаёт
+его как подходящий для домена и новый резолвер не дёргает. Ни ошибки, ни попытки в логе. Лечится
+только бэкапом и чисткой записи из `acme-staging.json` + рестартом общего прокси — все сайты хоста
+лежат несколько секунд.
 
-Порядок именно такой, потому что у production-ACME жёсткие недельные лимиты: несколько неудачных
-попыток на непроверенном домене выжигают их до конца недели, и сайт останется без сертификата.
+Лимиты Let's Encrypt бережёт не staging, а проверка до первого деплоя. Запускай **с сервера**:
+на рабочей машине DNS может идти через VPN с fake-IP и врать. Для каждого домена из `Host()`,
+включая `www`:
+
+```bash
+ssh deploy@<host> 'IP=<ip сервера>
+for D in example.com www.example.com; do
+  A=$(dig +short A $D @1.1.1.1 | grep -v "\.$" | xargs)   # CNAME-строки отбрасываем
+  # --resolve: curl идёт на публичный A, а не по /etc/hosts сервера
+  echo "$D  A=[$A]  AAAA=[$(dig +short AAAA $D @1.1.1.1 | grep -v "\.$" | xargs)]  HTTP=[$(curl -s -m 10 --resolve "$D:80:${A%% *}" -o /dev/null -w "%{http_code} %{remote_ip}" http://$D/.well-known/acme-challenge/precheck)]"
+done'
+# проходит: A=[$IP] (ровно один)  AAAA=[]  HTTP=[404 $IP]
+```
+
+AAAA должен быть пуст: при выключенном на хосте IPv6 Let's Encrypt пойдёт по AAAA и не достучится.
+Не прошла — HTTPS-роутер не выкатываешь вовсе: на `websecure` production-резолвер стоит по
+умолчанию, любой HTTPS-роутер сразу запросит сертификат. Выпуск всё же упал — у LE 5 неудачных
+валидаций на хост в час, и Traefik сам не повторит: передеплой с теми же labels для него та же
+конфигурация. Чини причину; новая попытка — при изменении labels роутера или рестарте прокси
+(все сайты, с согласия человека).
+
+Миграция с живого сервера: до DNS switchover выкатываешь только HTTP-роутер без редиректа и
+проверяешь сайт по HTTP через `/etc/hosts`. HTTPS-роутер — после смены DNS и предпроверки.
 
 ### Что уже висит глобально — не дублируй
 

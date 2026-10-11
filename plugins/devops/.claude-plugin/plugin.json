@@ -1,7 +1,7 @@
 {
   "name": "devops",
   "displayName": "DevOps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Compose, Traefik and self-hosted GitHub Actions deploys the way a single-host server actually runs them: two canons for shipping an image, rsync onto a live directory, and the traps that cost a day each — apt mirrors, inode-bound read-only binds, silent production ACME.",
   "author": {
     "name": "Dmitry Fomin",

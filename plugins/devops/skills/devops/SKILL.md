@@ -87,10 +87,14 @@ license: MIT
 (entrypoint `websecure`, tls, резолвер, middlewares), плюс `loadbalancer.server.port` с портом
 **внутри** контейнера. Полный шаблон — [references/compose-traefik.md](references/compose-traefik.md).
 
-**Резолвер задавай в labels явно.** На entrypoint `websecure` уже прописан production-резолвер,
-поэтому HTTPS-роутер **без** явного `tls.certresolver` молча получает production-ACME с его
-жёсткими rate limits. Новый домен — сначала staging-резолвер, переключение на production после
-успешной проверки. Забыл строку — первый же кривой деплой съест лимит на неделю.
+**Новый домен — сразу production-резолвер, но после предпроверки с сервера.** Staging-шагом
+не пользуйся: Traefik 3.6 при смене `letsencrypt-staging` → `letsencrypt` боевой сертификат не
+выпускает — staging-серт остаётся в хранилище и отдаётся как подходящий, лечится только чисткой
+`acme-staging.json` и рестартом общего прокси. Лимиты ACME бережёт предпроверка: для каждого
+домена роутера A смотрит на IP сервера, AAAA пусто, `http://<домен>/.well-known/acme-challenge/precheck`
+отвечает 404 от самого прокси. Гонять её с сервера, не с рабочей машины — там DNS бывает за VPN.
+Не прошла — роутер не выкатываешь. Резолвер в labels пиши явно, даже совпадающий с дефолтом
+entrypoint-а. Команда — [references/compose-traefik.md](references/compose-traefik.md).
 
 **Глобальные middlewares не дублируй в labels.** Rate-limit и inFlightReq висят на обоих
 entrypoint-ах и покрывают новый сайт автоматически. Повышать глобальный лимит ради одной шумной
