@@ -1,0 +1,19 @@
+README.md
+  s_d330ca70e057dd::t_008691e73a60f4 20,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "ce02934bc26ff44bf236f0d5621aa17527fb7ebb",
+  "prompts": {},
+  "sessions": {
+    "s_d330ca70e057dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88385470-256e-414e-9df3-b80350dcedfc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Фомин Дмитрий <fomin.dmitriy@zoloto585.ru>"
+    }
+  }
+}
