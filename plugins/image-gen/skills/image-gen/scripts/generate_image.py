@@ -310,12 +310,16 @@ def write_log(out: Path, record: dict) -> None:
 
 # --- generate -------------------------------------------------------------
 
+# флаги движков: dest argparse → алиас в engines.conf через замену "_" на "-"
+ENGINE_FLAGS = ("a6", "a6_25", "a6_flare", "a6_sunburst", "qwen")
+
+
 def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
     """Выбранный движок и хвост фолбэка — строго ВНИЗ по списку engines.conf,
     как обещают и конфиг, и SKILL.md. Новый движок в конфиге требует правки
     списка флагов здесь и в build_parser()."""
     pos = None
-    for flag in ("a6", "a6_25", "qwen"):
+    for flag in ENGINE_FLAGS:
         if getattr(args, flag, False):
             alias = flag.replace("_", "-")
             pos = next((i for i, e in enumerate(engines) if e.alias == alias), None)
@@ -356,7 +360,7 @@ def cmd_generate(args) -> int:
     requested_model = override or chosen.model
 
     # Движок, названный флагом, — это выбор человека: подменять его нельзя, только ошибка.
-    if args.a6 or getattr(args, "a6_25", False) or args.qwen:
+    if any(getattr(args, f, False) for f in ENGINE_FLAGS):
         args.no_fallback = True
 
     chain: list[tuple[Engine, str]] = [(chosen, requested_model)]
@@ -523,7 +527,7 @@ def cmd_remove_bg(args) -> int:
 
 def cmd_edit(args) -> int:
     """Правка готовой картинки: тот же конвейер, что generate, но исходник уходит
-    первым кадром в /images/edits, движок — только a6, подмены нет."""
+    первым кадром в /images/edits, движок — a6 или названный флагом, подмены нет."""
     src = Path(args.src).expanduser()
     if not src.is_file():
         die(2, f"файл не найден: {src}")
@@ -534,8 +538,9 @@ def cmd_edit(args) -> int:
     if same:
         die(2, f"--out совпадает с --in ({src}): исходник затёрся бы правкой, укажи другой путь")
     args.reference = [str(src)] + (args.reference or [])
-    args.a6, args.qwen, args.no_fallback, args.n = True, False, True, 1
-    args.a6_25 = False
+    args.qwen, args.no_fallback, args.n = False, True, 1
+    if not any(getattr(args, f, False) for f in ENGINE_FLAGS):
+        args.a6 = True
     args.native_bg = True
     return cmd_generate(args)
 
@@ -570,6 +575,8 @@ def build_parser() -> argparse.ArgumentParser:
     engine = g.add_mutually_exclusive_group()
     engine.add_argument("--a6", action="store_true", help="gpt-image-2 у провайдера A6 (умолчание)")
     engine.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 у провайдера A6, только по флагу")
+    engine.add_argument("--a6-flare", dest="a6_flare", action="store_true", help="gpt-image-2.6-flare у A6: быстрые черновики, серии, замена фона")
+    engine.add_argument("--a6-sunburst", dest="a6_sunburst", action="store_true", help="gpt-image-2.6-sunburst у A6: сложные сцены, продукт, точные правки")
     engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
     g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при явном флаге движка включён сам)")
     g.add_argument("--transparent", action="store_true", help="прогнать результат через rembg")
@@ -593,6 +600,11 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--transparent", action="store_true",
                    help="прозрачный фон силами gpt (кадр перерисовывается); только по явной просьбе")
     e.add_argument("--dry-run", action="store_true", help="напечатать запрос и модель, в API не ходить")
+    ee = e.add_mutually_exclusive_group()
+    ee.add_argument("--a6", action="store_true", help="gpt-image-2 у A6 (умолчание)")
+    ee.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 у A6")
+    ee.add_argument("--a6-flare", dest="a6_flare", action="store_true", help="gpt-image-2.6-flare: быстрые правки, замена фона")
+    ee.add_argument("--a6-sunburst", dest="a6_sunburst", action="store_true", help="gpt-image-2.6-sunburst: точные правки, мелкие детали")
     e.set_defaults(func=cmd_edit)
 
     r = sub.add_parser("remove-bg", help="обтравка готового файла через rembg")
