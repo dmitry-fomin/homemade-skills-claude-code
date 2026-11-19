@@ -17,7 +17,7 @@
 ./generate_image.py generate \
   --prompt-file examples/beanbag-looking-at-phone-prompt.txt \
   --out result.png \
-  --gpt \
+  --a6 \
   --reference examples/hero-beanbag.webp \
   --reference examples/mira.webp \
   --size 1024x1024
@@ -66,11 +66,10 @@ Photorealistic style, professional photography quality, warm and peaceful mood.
 
 | Задача | Провайдер | Время | Качество |
 |--------|-----------|-------|----------|
-| С референсами | CloseRouter (`--gpt`) | 41-51 сек | ✅ Отлично |
 | Без референсов | A6 gpt-image-2.5 (`--a6-25`) | 40-63 сек | ✅ Хорошо |
 | Без референсов, быстро | A6 gpt-image-2 (`--a6`) | 24-26 сек | ✅ Хорошо |
 
-**Правило:** референсы = только CloseRouter. A6 с референсами даёт плохое качество.
+**Правило:** референсы — на `--a6` (умолчание) или `--a6-25` по флагу; `--qwen` лицо с референса не держит.
 
 ## Структура примеров
 

@@ -144,7 +144,7 @@ def build_request(engine: Engine, model: str, prompt: str, size: str, refs: list
     if size != "auto":
         fields["size"] = size
     if refs and engine.reference == "edits":
-        # тип файла указываем явно: без него CloseRouter отвечает 400 на любой формат
+        # тип файла указываем явно: без него сервер отвечает 400 на любой формат
         files = [
             ("image[]", (p.name, p.read_bytes(), mimetypes.guess_type(p.name)[0] or "image/png"))
             for p in refs
@@ -315,17 +315,14 @@ def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
     как обещают и конфиг, и SKILL.md. Новый движок в конфиге требует правки
     списка флагов здесь и в build_parser()."""
     pos = None
-    for flag in ("gpt", "a6", "a6_25", "qwen"):
+    for flag in ("a6", "a6_25", "qwen"):
         if getattr(args, flag, False):
             alias = flag.replace("_", "-")
             pos = next((i for i, e in enumerate(engines) if e.alias == alias), None)
             if pos is None:
                 die(2, f"движок '{alias}' не описан в {CONF_NAME}")
     if pos is None:
-        # без референса — a6 (дешевле), фолбэк вниз на gpt у CloseRouter;
-        # с референсом — сразу gpt: a6 референс не держит и молча нарисовал бы без него
-        default = "gpt" if args.reference else "a6"
-        pos = next((i for i, e in enumerate(engines) if e.alias == default), 0)
+        pos = next((i for i, e in enumerate(engines) if e.alias == "a6"), 0)
     return engines[pos], engines[pos + 1:]
 
 
@@ -359,7 +356,7 @@ def cmd_generate(args) -> int:
     requested_model = override or chosen.model
 
     # Движок, названный флагом, — это выбор человека: подменять его нельзя, только ошибка.
-    if args.gpt or args.a6 or getattr(args, "a6_25", False) or args.qwen:
+    if args.a6 or getattr(args, "a6_25", False) or args.qwen:
         args.no_fallback = True
 
     chain: list[tuple[Engine, str]] = [(chosen, requested_model)]
@@ -526,7 +523,7 @@ def cmd_remove_bg(args) -> int:
 
 def cmd_edit(args) -> int:
     """Правка готовой картинки: тот же конвейер, что generate, но исходник уходит
-    первым кадром в /images/edits, движок — только gpt, подмены нет."""
+    первым кадром в /images/edits, движок — только a6, подмены нет."""
     src = Path(args.src).expanduser()
     if not src.is_file():
         die(2, f"файл не найден: {src}")
@@ -537,7 +534,7 @@ def cmd_edit(args) -> int:
     if same:
         die(2, f"--out совпадает с --in ({src}): исходник затёрся бы правкой, укажи другой путь")
     args.reference = [str(src)] + (args.reference or [])
-    args.gpt, args.a6, args.qwen, args.no_fallback, args.n = True, False, False, True, 1
+    args.a6, args.qwen, args.no_fallback, args.n = True, False, True, 1
     args.a6_25 = False
     args.native_bg = True
     return cmd_generate(args)
@@ -548,7 +545,7 @@ def cmd_edit(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="generate_image.py",
-        description="Генерация и правка изображений (A6, CloseRouter, OpenRouter), обтравка готового файла.",
+        description="Генерация и правка изображений (A6, OpenRouter), обтравка готового файла.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -571,8 +568,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--reference", action="append", metavar="PATH",
                    help="референсный кадр; флаг повторяемый")
     engine = g.add_mutually_exclusive_group()
-    engine.add_argument("--gpt", action="store_true", help="gpt-image-2 у провайдера CloseRouter (умолчание при --reference, фолбэк после --a6)")
-    engine.add_argument("--a6", action="store_true", help="gpt-image-2 у провайдера A6 (умолчание без --reference)")
+    engine.add_argument("--a6", action="store_true", help="gpt-image-2 у провайдера A6 (умолчание)")
     engine.add_argument("--a6-25", dest="a6_25", action="store_true", help="gpt-image-2.5 у провайдера A6, только по флагу")
     engine.add_argument("--qwen", action="store_true", help="qwen/qwen-image-3-pro через OpenRouter")
     g.add_argument("--no-fallback", action="store_true", help="запретить подмену движка (при явном флаге движка включён сам)")
