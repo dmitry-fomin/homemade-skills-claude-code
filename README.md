@@ -13,13 +13,11 @@ Skill bodies are written in Russian, because that is the language they work with
 /plugin install writer@homemade-skills-claude-code
 /plugin install image-gen@homemade-skills-claude-code
 /plugin install second-opinion@homemade-skills-claude-code
-/plugin install feature-pipeline@homemade-skills-claude-code
 /plugin install skill-smith@homemade-skills-claude-code
 ```
 
 Install only what a project needs — `image-gen` wants `uv`, `A6_IMAGEGEN_API_KEY` and `OPENROUTER_API_KEY`,
-`second-opinion` wants at least one LLM key, `feature-pipeline` wants an agentic harness to hand
-the code to (`grok` or `dsh`), and `writer` and `skill-smith` need nothing beyond `python3`.
+`second-opinion` wants at least one LLM key, and `writer` and `skill-smith` need nothing beyond `python3`.
 
 Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 
@@ -30,12 +28,10 @@ Requires Claude Code v2.1.216 or later (namespaced plugin skill commands).
 | `writer` | `/writer:writer [lj\|vc]` | Rewrites a Russian draft — a post, a chapter, a note — so it reads alive: finds the buried detail, restores scenes, kills dead verbs, fixes rhythm, keeps the author's voice. Tuned for LiveJournal (`lj`) and vc.ru (`vc`). |
 | `image-gen` | `/image-gen:image-gen` | Prompt to PNG on disk — gpt-image-2 via the A6 API (default, keeps faces from a reference) or qwen-image via OpenRouter — `rembg` background removal — plus the prompting lore that makes the frames usable. Needs `uv`, `A6_IMAGEGEN_API_KEY` and `OPENROUTER_API_KEY`. |
 | `second-opinion` | `/second-opinion:ask` | Checks a risky hypothesis against a model from a different family — DeepSeek, Gemini, GPT, Grok, Qwen, or anything on OpenRouter — through one OpenAI-compatible script. The value is a second set of blind spots, so instant complete agreement is treated as suspicious. Needs `DEEPSEEK_API_KEY` or `OPENROUTER_API_KEY`. |
-| `feature-pipeline` | `/feature-pipeline:feature-pipeline` | Routes a feature through four stages — spec plus acceptance checklist, an outside opinion on the design, implementation in another agentic harness, and an independent verification against the checklist — while the main context only orchestrates: it routes, keeps the journal, runs the guards and commits, and never writes the code itself. Needs the `grok` or `dsh` plugin, and `second-opinion` unless the channel is turned off. |
 | `skill-smith` | `/skill-smith:skill-smith` | Engineering discipline for Claude Code's own configuration — skills, slash commands, subagents, hooks, plugins, marketplaces, `settings.json`. Picks the mechanism before anything is written (a rule that must always hold is a hook, not a skill), takes frontmatter from the live docs instead of memory, matches the wording to the failure it fixes, and ships only after a static validator and a fresh-context trigger check. Ships `validate_skill.py`, which catches what the harness swallows silently. |
 
 Claude also loads a skill on its own when the request matches its description, so you rarely
-need to type the command: hand it a draft and say it reads flat. `feature-pipeline` is the
-exception: it writes files and starts a harness with write access, so it is invoked by hand.
+need to type the command: hand it a draft and say it reads flat.
 
 ## Layout
 
@@ -59,11 +55,6 @@ plugins/
       SKILL.md
       scripts/consult.sh          one OpenAI-compatible client + the grok branch + secret guard
       scripts/providers.conf      provider registry: name | base url | key var | model
-  feature-pipeline/
-    .claude-plugin/plugin.json
-    skills/feature-pipeline/
-      SKILL.md
-      config.example.yaml         copy to .claude/feature-pipeline.yaml in the project and edit there
   skill-smith/
     .claude-plugin/plugin.json
     skills/skill-smith/
@@ -74,26 +65,6 @@ plugins/
       references/testing.md       validator, trigger tuning, wording micro-tests, baseline A/B
       scripts/validate_skill.py   static SKILL.md checker
 ```
-
-## feature-pipeline
-
-Four stages, each in its own context, so the main session stays small: leftover context from the
-previous stage gives the next one nothing and is paid for again at every step.
-
-| Stage | Who | Output |
-| --- | --- | --- |
-| 1 | `general-purpose` subagent | the step's spec **and** its acceptance checklist, in one pass |
-| 2 | `/second-opinion:ask` skill | review of the design and of the checklist; never sees the code |
-| 3 | `grok:grok-delegate`, falling back to `dsh:dsh-runner` | the implementation |
-| 4 | another `general-purpose` subagent | runs the checklist, then reads the diff for cut corners |
-
-The checklist is written **before** the code on purpose. A checklist derived from a finished diff
-inherits the diff's blind spots: where the implementer cut a corner, the check verifies the cut
-corner. Written from the requirements, it does not.
-
-Settings live in the project, not in the plugin — copy `config.example.yaml` to
-`.claude/feature-pipeline.yaml` and edit it there, so a plugin update cannot overwrite them.
-Paths in it are relative to the project root.
 
 ## image-gen
 
