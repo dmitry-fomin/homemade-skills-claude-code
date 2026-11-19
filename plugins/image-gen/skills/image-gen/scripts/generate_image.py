@@ -323,7 +323,7 @@ def pick_chain(engines: list[Engine], args) -> tuple[Engine, list[Engine]]:
                 die(2, f"движок '{alias}' не описан в {CONF_NAME}")
     if pos is None:
         # без референса — a6 (дешевле), фолбэк вниз на gpt у CloseRouter;
-        # с референсом — сразу gpt: A6 референс не держит и молча нарисовал бы без него
+        # с референсом — сразу gpt: a6 референс не держит и молча нарисовал бы без него
         default = "gpt" if args.reference else "a6"
         pos = next((i for i, e in enumerate(engines) if e.alias == default), 0)
     return engines[pos], engines[pos + 1:]
