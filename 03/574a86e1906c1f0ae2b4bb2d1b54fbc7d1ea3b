@@ -1,0 +1,19 @@
+README.md
+  s_8d061159ca4f17::t_b4733fc80cae69 19,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "03574a86e1906c1f0ae2b4bb2d1b54fbc7d1ea3b",
+  "prompts": {},
+  "sessions": {
+    "s_8d061159ca4f17": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dcb3f6b4-b91f-4664-a707-b6dc3b380a57",
+        "model": "unknown"
+      },
+      "human_author": "Фомин Дмитрий <fomin.dmitriy@zoloto585.ru>"
+    }
+  }
+}
