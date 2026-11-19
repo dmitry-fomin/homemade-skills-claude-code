@@ -1,0 +1,29 @@
+plugins/image-gen/skills/image-gen/SKILL.md
+  s_d330ca70e057dd::t_4a50be48230f0e 29-30,85-86,140-142
+  s_d330ca70e057dd::t_e6632392eb74a3 51-66
+  s_d330ca70e057dd::t_af5cb204a2af18 143,180,209
+plugins/image-gen/skills/image-gen/scripts/engines.conf
+  s_d330ca70e057dd::t_762a91ca4b87b4 16-18,22-23
+plugins/image-gen/skills/image-gen/scripts/generate_image.py
+  s_d330ca70e057dd::t_762a91ca4b87b4 313-316,322,363,530,541-543,578-579,603-607
+.claude-plugin/marketplace.json
+  s_d330ca70e057dd::t_4be3dcdfb6cd8d 23
+plugins/image-gen/.claude-plugin/plugin.json
+  s_d330ca70e057dd::t_1af0dea574ee84 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "cc5957f26c7853878059d5d867290a3a6dd5fcc1",
+  "prompts": {},
+  "sessions": {
+    "s_d330ca70e057dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "88385470-256e-414e-9df3-b80350dcedfc",
+        "model": "unknown"
+      },
+      "human_author": "Фомин Дмитрий <fomin.dmitriy@zoloto585.ru>"
+    }
+  }
+}
